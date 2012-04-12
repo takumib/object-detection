@@ -14,6 +14,9 @@
 //gcc example.c -o example `pkg-config --cflags --libs opencv`
 
 void bilateralKernel(IplImage *image);
+void init_mat(char *mat, int n);
+void pca(IplImage *image);
+
 
 int main(int argc, char *argv[])
 {
@@ -55,7 +58,7 @@ int main(int argc, char *argv[])
 	
 	//Invert the image
 	bilateralKernel(img);
-	
+	pca(img);
 	//Display the image on the window
 	cvShowImage(window, img);
 
@@ -131,6 +134,205 @@ void bilateralKernel(IplImage *image)
 	//free(dest);
 }
 
+void pca(IplImage *image)
+{
+	int i, j, k;
+	int width, height, step, channels;
+	unsigned char *src;
+	unsigned char *u;
+	unsigned char *b;//, *bg, *bb;
+	unsigned char *g;
 
+	height    = image->height;
+	width     = image->width;
+	step      = image->widthStep;
+	channels  = image->nChannels;
+	src       = (unsigned char *)image->imageData;
+	
+	u = (unsigned char *)malloc(sizeof(unsigned char) * height * channels);
+	b = (unsigned char *)malloc(sizeof(unsigned char) * width * height * channels);
+	g = (unsigned char *)malloc(sizeof(unsigned char) * height * channels);
+	
+	//bg = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
+	//bb = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
+
+	init_mat(u, height * channels);
+	init_mat(b, height * width);
+	//init_mat(bg, height * width);
+	//init_mat(bb, height * widht);
+	init_mat(g, height * channels);
+
+	//begin by calculating the empirical mean
+	//u[1..height] = 1/n sum(src[i,j])
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < width; j++)
+		{
+			for(k = 0; k < channels; k++)
+			{
+				u[i*channels + k] += src[i*step+j*channels+k] / width; 
+			}
+		}
+	}
+
+	printf("empirical means working\n\n");
+
+	//we next calculate the deviation from the mean
+	//b = src[i,j] - u;
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < width; j++)
+		{
+			for(k = 0; k < channels; k++)
+			{
+				b[i*step+j*channels+k] -= u[i*channels+k];
+				//bg[i*step+j] -= u[i*channels+1];
+				//bb[i*step+j] -= u[i*channels+2];
+			}	
+		}
+	}
+	
+	printf("deviation working\n\n");
+
+	//we now need to find the covariance matrix
+	
+	//b in opencv matrix form
+	CvMat bMat = cvMat(height, width, CV_8UC3, b);
+	//CvMat bgMat = cvMat(height, width, CV_8U3, bg);
+	//CvMat bbMat = cvMat(height, width, CV_8U3, bb);
+
+	//b transpose
+	CvMat bT = cvMat(width, height, CV_8UC3, b);	
+	//CvMat *bgT = cvCreateMat(height, width, CV_8UC3);	
+	//CvMat *bbT = cvCreateMat(height, width, CV_8UC3);	
+
+printf("Transposing cross product\n");	
+	cvTranspose(&bMat, &bT);
+	//cvTranspose(&bgMat, bgT);
+	//cvTranspose(&bbMat, bbT);
+	
+	//covariance matrix
+	CvMat *c = cvCreateMat(height, height, CV_8UC3);
+	//CvMat *cg = cvCreaetMat(height, height, CV_8UC3);
+	//CvMat *cb = cvCreateMat(height, height, CV_8UC3);
+	//printf("%d\n", &bMat->cols);
+	//printf("%d\n", &bMat->rows);
+
+printf("Doing that cross product\n");
+	cvCrossProduct(&bMat, &bT, c);
+	//cvCrossProduct(&bMat, &bT, &c);
+	//cvCrossProduct(&bgMat, &bgT, &cg);	
+	//cvCrossProduct(&bbMat, &bbT, &cb);
+
+	printf("cross product working\n\n");
+
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < height; j++)
+		{	
+			cvmSet(c, i, j, cvmGet(c, i, j) / width); 
+			//cvmSet(cg, i, j, cvmGet(cg, i, j) / width); 
+			//cvmSet(cb, i, j, cvmGet(cb, i, j) / width); 
+		}
+	}	
+
+	//eigenvector and values
+        CvMat *eMat = cvCreateMat(height, height, CV_8UC3);
+	CvMat *lMat = cvCreateMat(height, 1, CV_8UC3);
+
+	cvEigenVV(&c, &eMat, &lMat, 0.0000001, -1, -1);
+
+	unsigned char *l = lMat->data.ptr;
+	unsigned char *e = eMat->data.ptr;
+	
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < i+1; j++)
+		{
+			for(k = 0; k < channels; k++)
+			{
+				g[i*channels+k] += l[i*channels+k];
+			}
+		}
+	}	
+
+	int L = 0;
+	float currVal = 0.0;
+
+	for(i = 0; i < height; i++)
+	{
+		if(currVal >= 0.9)
+		{
+			L = i;
+			break;
+		}
+
+		for(k = 0; k < channels; k++)
+		{
+			currVal += (float)g[i*channels+k] / (float)g[height - 1 + k];		
+		}
+	}
+
+	unsigned char *w;
+	
+	w = (unsigned char *)malloc(sizeof(unsigned char) * height * L * channels);
+
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < L; j++)
+		{
+			for(k = 0; k < channels; k++)
+			{	
+				w[i*step+j*channels+k] = e[i*step+j*channels+k];
+			}
+		}
+	}
+
+	unsigned char *s;
+	s = (unsigned char *)malloc(sizeof(unsigned char) * height * channels);
+
+	for(i = 0; i < height; i++)
+	{
+		for(k = 0; k < channels; k++)
+		{
+			s[i*channels+k] = sqrt(cvmGet(c,i,i));
+		}
+	}
+
+	unsigned char *z;
+	z = (unsigned char *)malloc(sizeof(unsigned char) * height * width * channels);
+
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < width; j++)
+		{
+			for(k = 0; k < channels; k++)
+			{
+				z[i*step+j*channels+k] = (float)b[i*step+j*channels+k] / (float)s[i*channels+k];
+			}
+		}
+	}
+
+	CvMat wMat = cvMat(height, L, CV_8UC3, w);
+	CvMat *wMatT = cvCreateMat(L, height, CV_8UC3); 
+
+	cvTranspose(&wMat, &wMatT);
+
+	CvMat zMat = cvMat(height, width, CV_8UC3, z);
+
+	CvMat *yMat = cvCreateMat(height, width, CV_8UC3);
+
+	cvCrossProduct(&wMatT, &zMat, &yMat); 
+}
+
+void init_mat(char *mat, int n)
+{
+	int i;
+
+	for(i = 0; i < n; i++)
+	{
+		mat[i] = 0;
+	}
+}
 
 
