@@ -20,7 +20,6 @@ int main(int argc, char *argv[])
 	int height, width, step, channels;
 	unsigned char *data;
 	char *window = "Object Detection";
-	int i, j, k;
 
 	//If we do not have an input image
 	if(argc < 2)
@@ -72,7 +71,7 @@ int main(int argc, char *argv[])
 
 void bilateralKernel(IplImage *image)
 {
-	int i, j, k, ii, jj, kk;
+	int i, j, k, ii, jj;
 	int width, height, step, channels;
 	unsigned char *src;
 	unsigned char *dest;
