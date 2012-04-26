@@ -1,0 +1,24 @@
+
+Kernel Steering:
+
+for each pixel
+	calculate matrix with distance from x
+	
+	calculate covariance matrix
+		sobel operator to window
+		covar matrix is:
+				sum(gxgx) sum(gxgy)
+				sum(gxgy) sum(gygy)
+
+	calculate the determinant of covariance
+
+	find a reasonable value for h
+		9 (for 3x3)?
+
+Normalize Kernel:
+
+for each pixel
+	take kernel value at point x
+	divide that by sum of kernel values in window
+
+for higher order regression repeat this	

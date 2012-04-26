@@ -93,10 +93,6 @@ int main(int argc, char *argv[])
 	steeringKernel(g);
 	steeringKernel(r);
 
-	pca(b);
-	pca(g);
-	pca(r);
-
 	cvMerge(b, g, r, 0, src);
 
 	//steeringKernel(img);
@@ -110,7 +106,7 @@ int main(int argc, char *argv[])
 	cvShowImage(window, src);
     //cvShowImage("b", b);
 	//cvShowImage("g", g);
-	cvSaveImage("object-detection-output.jpg", src, 0);
+	cvSaveImage("object-detection-output.jpg", img, 0);
 
 	//Wait key to signal exit  
 	cvWaitKey(0);
@@ -352,13 +348,18 @@ void pca(IplImage *image)
 	channels  = image->nChannels;
 	src       = (unsigned char *)image->imageData;
 	
-	u = (float *)malloc(sizeof(float) * height);
-	b = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
-	g = (unsigned char *)malloc(sizeof(unsigned char) * height);	
+	u = (float *)malloc(sizeof(float) * height * channels);
+	b = (unsigned char *)malloc(sizeof(unsigned char) * width * height * channels);
+	g = (unsigned char *)malloc(sizeof(unsigned char) * height * channels);
+	
+	//bg = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
+	//bb = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
 
-	init_floatMat(u, height);
-	init_charMat(b, height * width);
-	init_charMat(g, height);
+	init_floatMat(u, height * channels);
+	init_charMat(b, height * width * channels);
+	//init_mat(bg, height * width);
+	//init_mat(bb, height * widht);
+	init_charMat(g, height * channels);
 
 	//begin by calculating the empirical mean
 	//u[1..height] = 1/n sum(src[i,j])
@@ -366,8 +367,11 @@ void pca(IplImage *image)
 	{
 		for(j = 0; j < width; j++)
 		{
+			for(k = 0; k < channels; k++)
+			{
 				//need to fix floating point arithmetic
-			u[i] += (float)src[i*step+j] / (float)width;
+				u[i*channels + k] += (float)src[i*step+j*channels+k] / (float)width;
+			}
 		}
 	}
 
@@ -379,7 +383,10 @@ void pca(IplImage *image)
 	{
 		for(j = 0; j < width; j++)
 		{
-			b[i*step+j] = src[i*step+j] - (int)u[i];
+			for(k = 0; k < channels; k++)
+			{
+				b[i*step+j*channels+k] = src[i*step+j*channels+k] - (int)u[i*channels+k];
+			}	
 		}
 	}
 
@@ -388,70 +395,64 @@ void pca(IplImage *image)
 	//we now need to find the covariance matrix
 	
 	//b in opencv matrix form
-	CvMat bMat = cvMat(height, width, CV_8UC1, b);
+	CvMat bMat = cvMat(height, width, CV_8UC3, b);
 	//CvMat bgMat = cvMat(height, width, CV_8U3, bg);
 	//CvMat bbMat = cvMat(height, width, CV_8U3, bb);
 	
-	//CvMat *bMatb = cvCreateMat(height, width, CV_8UC1);
-	//CvMat *bMatg = cvCreateMat(height, width, CV_8UC1);
-	//CvMat *bMatr = cvCreateMat(height, width, CV_8UC1);
+	CvMat *bMatb = cvCreateMat(height, width, CV_8UC1);
+	CvMat *bMatg = cvCreateMat(height, width, CV_8UC1);
+	CvMat *bMatr = cvCreateMat(height, width, CV_8UC1);
 
-	//cvSplit(&bMat, bMatb, bMatg, bMatr, 0);	
+	cvSplit(&bMat, bMatb, bMatg, bMatr, 0);	
 	
 	//covariance matrix
-	//CvMat *cb = cvCreateMat(height, height, CV_32FC1);
-	//CvMat *cg = cvCreateMat(height, height, CV_32FC1);
-	//CvMat *cr = cvCreateMat(height, height, CV_32FC1);
-	CvMat *c = cvCreateMat(height, height, CV_32FC1);
+	CvMat *cb = cvCreateMat(height, height, CV_32FC1);
+	CvMat *cg = cvCreateMat(height, height, CV_32FC1);
+	CvMat *cr = cvCreateMat(height, height, CV_32FC1);
+	CvMat *c = cvCreateMat(height, height, CV_32FC3);
 	
-	//cvMulTransposed(bMatb, cb, 0, NULL, 1.0/(double)width);
-	//cvMulTransposed(bMatg, cg, 0, NULL, 1.0/(double)width);
-	//cvMulTransposed(bMatr, cr, 0, NULL, 1.0/(double)width);
-
-	cvMulTransposed(&bMat, c, 0, NULL, 1.0/(double)width);
+	cvMulTransposed(bMatb, cb, 0, NULL, 1.0/(double)width);
+	cvMulTransposed(bMatg, cg, 0, NULL, 1.0/(double)width);
+	cvMulTransposed(bMatr, cr, 0, NULL, 1.0/(double)width);
 
 	printf("Covariance Matrix working\n");
 
 	//eigenvector and values
-   //     CvMat *eMatb = cvCreateMat(height, height, CV_32FC1);
-	//CvMat *lMatb = cvCreateMat(height, 1, CV_32FC1);
-     //   CvMat *eMatr = cvCreateMat(height, height, CV_32FC1);
-	//CvMat *lMatr = cvCreateMat(height, 1, CV_32FC1);
-      //  CvMat *eMatg = cvCreateMat(height, height, CV_32FC1);
-	//CvMat *lMatg = cvCreateMat(height, 1, CV_32FC1);
+        CvMat *eMatb = cvCreateMat(height, height, CV_32FC1);
+	CvMat *lMatb = cvCreateMat(height, 1, CV_32FC1);
+        CvMat *eMatr = cvCreateMat(height, height, CV_32FC1);
+	CvMat *lMatr = cvCreateMat(height, 1, CV_32FC1);
+        CvMat *eMatg = cvCreateMat(height, height, CV_32FC1);
+	CvMat *lMatg = cvCreateMat(height, 1, CV_32FC1);
 	
-	CvMat *eMat = cvCreateMat(height, height, CV_32FC1);
-	CvMat *lMat = cvCreateMat(height, 1, CV_32FC1);
-
 	printf("Successfully created eigen matrices\n");	
 
 	//cvEigenVV(cb, eMatb, lMatb, 1e-10, -1, -1);
 	//cvEigenVV(cg, eMatg, lMatg, 1e-10, -1, -1);
 	//cvEigenVV(cr, eMatr, lMatr, 1e-10, -1, -1);
 	
-	//cvSVD(cb, lMatb, eMatb, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
-	//cvSVD(cg, lMatg, eMatg, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
-	//cvSVD(cr, lMatr, eMatr, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
-	
-	cvSVD(c, lMat, eMat, NULL, CV_SVD_U_T); 
+	cvSVD(cb, lMatb, eMatb, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
+	cvSVD(cg, lMatg, eMatg, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
+	cvSVD(cr, lMatr, eMatr, NULL, CV_SVD_U_T & CV_SVD_MODIFY_A);
+	 
 
 	printf("Eigentvectors and Eigenvalues passes\n");
 
-	//unsigned char *lb = lMatb->data.ptr;
-	//unsigned char *eb = eMatb->data.ptr;
-	//unsigned char *lr = lMatr->data.ptr;
-	//unsigned char *er = eMatr->data.ptr;
-	//unsigned char *lg = lMatg->data.ptr;
-	//unsigned char *eg = eMatg->data.ptr;
+	unsigned char *lb = lMatb->data.ptr;
+	unsigned char *eb = eMatb->data.ptr;
+	unsigned char *lr = lMatr->data.ptr;
+	unsigned char *er = eMatr->data.ptr;
+	unsigned char *lg = lMatg->data.ptr;
+	unsigned char *eg = eMatg->data.ptr;
 	
-	char *e = eMat->data.ptr;
-	char *l = lMat->data.ptr;
-
 	for(i = 0; i < height; i++)
 	{
 		for(j = 0; j < i+1; j++)
 		{
-			g[i] += l[i];
+			for(k = 0; k < channels; k++)
+			{
+				g[i*channels] += lb[i*channels+k];
+			}
 		}
 	}	
 	
@@ -481,36 +482,46 @@ void pca(IplImage *image)
 
 	unsigned char *w;
 	
-	w = (unsigned char *)malloc(sizeof(unsigned char) * height * L);
+	w = (unsigned char *)malloc(sizeof(unsigned char) * height * L * channels);
 
 	for(i = 0; i < height; i++)
 	{
 		for(j = 0; j < L; j++)
 		{
-			w[i*L+j] = e[i*height+j];
+			//for(k = 0; k < channels; k++)
+			//{	
+				w[i*(L*channels)+j*channels]   = eb[i*height+j];
+				w[i*(L*channels)+j*channels+1] = eg[i*height+j];
+				w[i*(L*channels)+j*channels+2] = er[i*height+j];	
+			//}
 		}
 	}
 
 	printf("Successfully created basis vectors\n");
 
 	unsigned char *s;
-	s = (unsigned char *)malloc(sizeof(unsigned char) * height);
+	s = (unsigned char *)malloc(sizeof(unsigned char) * height * channels);
 
 	for(i = 0; i < height; i++)
 	{
-		s[i] = sqrt(c->data.ptr[i*c->step+i]);
+		s[i*channels] = sqrt(cb->data.ptr[i*cb->cols+i]);
+		s[i*channels+1] = sqrt(cg->data.ptr[i*cg->cols+i]);
+		s[i*channels+2] = sqrt(cr->data.ptr[i*cr->cols+i]);
 	}
 
-	printf("Successfully converted source data to z-scores\n");
+	printf("Successfully convertd source data to z-scores\n");
 
 	unsigned char *z;
-	z = (unsigned char *)malloc(sizeof(unsigned char) * height * width);
+	z = (unsigned char *)malloc(sizeof(unsigned char) * height * width * channels);
 
 	for(i = 0; i < height; i++)
 	{
 		for(j = 0; j < width; j++)
 		{
-			z[i*step+j] = (float)b[i*step+j] / (float)s[i];
+			for(k = 0; k < channels; k++)
+			{
+				z[i*step+j*channels+k] = (float)b[i*step+j*channels+k] / (float)s[i*channels+k];
+			}
 		}
 	}
 
@@ -521,11 +532,11 @@ void pca(IplImage *image)
 	//CvMat wMatr = cvMat(height, L, CV_32FC1, er);
 	//CvMat wMatg = cvMat(height, L, CV_32FC1, eg);
 	
-	CvMat wMat = cvMat(L, height, CV_32FC1, w);
+	CvMat wMat = cvMat(L, height, CV_32FC3, w);
 
 	//cvMerge(&wMatb, &wMatr, &wMatg, 0, wMat);
 
-	CvMat *wMatT = cvCreateMat(height, L, CV_32FC1); 
+	CvMat *wMatT = cvCreateMat(height, L, CV_32FC3); 
 
 	cvTranspose(&wMat, wMatT);
 
@@ -551,7 +562,7 @@ void pca(IplImage *image)
 
 	printf("Transpose of W\n");
 
-	CvMat zMat = cvMat(height, width, CV_32FC1, z);
+	CvMat zMat = cvMat(height, width, CV_32FC3, z);
 
 	//CvMat *zMatb = cvCreateMat(height, width, CV_8UC1);
 	//CvMat *zMatg = cvCreateMat(height, width, CV_8UC1);
@@ -561,7 +572,7 @@ void pca(IplImage *image)
 
 	printf("created z matrix\n");
 	
-	CvMat *yMat = cvCreateMat(height, width, CV_32FC1);
+	CvMat *yMat = cvCreateMat(height, width, CV_32FC3);
 
 	//CvMat *yMatb = cvCreateMat(height, width, CV_8UC1);
 	//CvMat *yMatg = cvCreateMat(height, width, CV_8UC1);
@@ -571,18 +582,21 @@ void pca(IplImage *image)
 
 	char *wdat = wMatT->data.ptr;
 	char *zdat = zMat.data.ptr;
-	char *ydat = (char *)malloc(sizeof(char) * L * width);
-	init_charMat(ydat, L*width);
+	char *ydat = (char *)malloc(sizeof(char) * L * width * channels);
+	init_charMat(ydat, L*width*channels);
 	int r = 0;
 
 	for(i = 0; i < L; i++)
 	{
-		for(j = 0; j < height; j++)
+		for(j = 0; j < width; j++)
 		{
-			for(r = 0; r < width; r++)
+			for(k = 0; k < channels; k++)
 			{
-				ydat[i*step+j] += wdat[i*step+r] * zdat[r*step+j]; 
-			}				
+				for(r = 0; r < width; r++)
+				{
+					ydat[i*step+j*channels+k] += wdat[i*step+r*channels+k] * zdat[r*step+j*channels+k]; 
+				}				
+			}
 		}
 	}
 
@@ -604,21 +618,22 @@ void pca(IplImage *image)
 	//cvMul(wMatT, &zMat, yMat, 1.0);
 	//cvMul(wMatTg, zMatg, yMatg, 1.0);
 	//cvMul(wMatTr, zMatr, yMatr, 1.0);
-    printf("Matrix Multiply Successful\n");
+        printf("Matrix Multiply Successful\n");
 	
 	//char *output = yMat->data.ptr;
 	
 	//printf("height: %d width: %d channels: %d", height, width, channels);
-	
-	//normalize feature vectors
 	for(i = 0; i < height; i++)
 	{
 		for(j = 0; j < width; j++)
 		{
-			src[i*step+j] = src[i*step+j] * ydat[i];
+			for(k = 0; k < channels; k++)
+			{
+				src[i*step+j*channels+k] = src[i*step+j*channels+k] * ydat[(i*channels)+width+k];
+			}
 		}
 	}
-	printf("Successfully normalized\n");
+	printf("Successfully multiplied\n");
  	
 	
 	//cvMerge(yMatb, yMatg, yMatr, 0, yMat);
