@@ -3,19 +3,20 @@
 #include "cosinesimilarity.h"
 #define DEBUG 1
 
-//CvScalar cosine_similarity(CvMat query, CvMat patch);
+//CvScalar cosine_similarity(CvMat test, CvMat patch);
 //int Resemblance(CvScalar map);
 
 //Do the cosine similarity operation
 //See: Frobenius inner product
 //Boils down to the normalized product of the matrices
-CvScalar cosine_similarity(CvMat query, CvMat patch)
+CvScalar cosine_similarity(CvMat * test, CvMat * patch)
 {
 	//Create a destination matrix
-	CvMat* dest = cvCreateMat(patch.rows,patch.cols,patch.type);
+	CvMat* dest = cvCreateMat(patch->rows,patch->cols,patch->type);
+
 
 	//Take the product of the two matrices 
-	cvMatMul(&query, &patch, dest);	
+	cvMatMul(test,patch, dest);	
 
 	//Trace the matrices 
 	CvScalar scale = cvTrace(dest); 

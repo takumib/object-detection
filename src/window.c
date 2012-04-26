@@ -2,6 +2,7 @@
 #include <math.h>
 #include <cv.h>
 #include <highgui.h>
+#include "window.h"
 
 #define TYPE CV_8UC1
 #define DEBUG 1
@@ -11,7 +12,11 @@
 
 //Do we need to check the size of the image?
 
-CvMat** window(IplImage * query, IplImage Test)
+void duck(){
+printf("test\n");
+}
+
+CvMat** get_queries(IplImage * Test, IplImage * query)
 {
 	//Get the sizes of the images
 	int query_height = query->height;
@@ -19,29 +24,41 @@ CvMat** window(IplImage * query, IplImage Test)
 
 	//We want the size of the query image in bytes for data manipulation later
 	int query_size = query_width * query_height * sizeof (unsigned char);
-	int test_height = Test.height;
-	int test_width = Test.width;
+	int test_height = Test->height;
+	int test_width = Test->width;
 
 	//Get the data out of the test image so we can manipulate it 
 	//Unsigned vs signed char?
-	unsigned char * data = (unsigned char *)Test.imageData;
+	unsigned char * data = (unsigned char *)Test->imageData;
 	int i,j,k,l;
 
 	//FIXME This math may need work 
 	//We need to figure out how many query patches we can fit in vertically and horizontally
 	//The values are equivilant in a 2^n image, but why not be general?
-	int numhoriz = test_width - (query_height/2);
-	int numvert = test_height - (query_height/2);
+	printf("Test Width, Height: %d,%d    query_height %d,%d\n", test_width,test_height, query_height,query_width);
+	int numhoriz = test_width -(query_width - 1);
+	int numvert = test_height - (query_height - 1);
 
 	//Allocate memory for each of the patches
 	CvMat ** patches = malloc(numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
 
+	patches[0] = cvCreateMat(query_height, query_width, CV_8UC1);
+
+	printf("Matrix test %d\n", patches[0]->cols); 
+
 	//Allocate memory for a swap patch
-	unsigned char ** swap = malloc(query_height * query_width * sizeof(unsigned char));
+	printf("Allocating swap space h: %d  w: %d\n",query_height, query_width); 
+	unsigned char ** swap = malloc(query_height * sizeof(char *));
+	for(i = 0; i < query_width; i++)
+	{
+		swap[i] = malloc(query_width * sizeof(char));
+	}
+
 
 	//We need to keep track of how many patches we have sampled
 	int patchindex = 0;
 
+	printf("Patching loop start %d, %d\n", numhoriz, numvert);
 	//For each horizontal space
 	for(i = 0; i < numhoriz; i++)
 	{
@@ -49,18 +66,22 @@ CvMat** window(IplImage * query, IplImage Test)
 		for(j = 0; j < numvert; j++)
 		{
 
+
 			//Create a new patch
-			patches[patchindex] = cvCreateMat(query_height, query_width, TYPE);
+		//	printf("Patch values pi%d  qh %d, qw %d, %d\n", patchindex, query_height, query_width, CV_8UC1);
+			patches[patchindex] = cvCreateMat(query_height, query_width, CV_8UC1);
+		//	printf("Done Assigning matrix %d\n", data[9]);
 
 			//For each pixel of the patch...
-			for(k = i * numhoriz; k < query_width; k++)
+			for(k = 0; k < query_width; k++)
 			{
-				for(l = j * numvert; l < query_height; l++)
+				for(l = 0; l < query_height; l++)
 				{
 					//Get a data value
-					swap[k][l] = data[k * query_height + l];
+					swap[k][l] = data[i * query_width + k * query_width + l];
 				}
 			}
+			//printf("Data copying done\n");
 			//FIXME figure out how to get the data from the swap into the array
 			memcpy(patches[patchindex]->data.ptr, swap, query_size);
 			patchindex+=1;
