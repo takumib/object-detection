@@ -78,7 +78,7 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 				for(l = 0; l < query_height; l++)
 				{
 					//Get a data value
-					swap[k][l] = data[i * query_width + k * query_width + l];
+					swap[k][l] = data[(i * query_width + j) + k * query_width + l];
 				}
 			}
 			//printf("Data copying done\n");

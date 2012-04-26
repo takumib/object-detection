@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 	int height, width, step, channels;
 	unsigned char *data;
 	char *window = "Object Detection";
-	int i, j, k;
+	//int i, j, k;
 
 	//If we do not have an input image
 	if(argc < 2)
@@ -72,12 +72,12 @@ int main(int argc, char *argv[])
 
 void bilateralKernel(IplImage *image)
 {
-	int i, j, k, ii, jj, kk;
+	int i, j, k, ii, jj;
 	int width, height, step, channels;
 	unsigned char *src;
 	unsigned char *dest;
 	float colorDist, imageDist, colorSum, imageSum;
-	int rows, cols, nbrs;
+	int cols, nbrs;
 
 	height    = image->height;
 	width     = image->width;
@@ -114,7 +114,7 @@ void bilateralKernel(IplImage *image)
 					
 				}
 				float colorSumSqrd = sqrt(colorSum);
-				float imageSumSqrd = sqrt(imageSum);
+				//float imageSumSqrd = sqrt(imageSum);
 			//	printf("imageSum: %f\n", imageSum / (float)nbrs);
 				//CvMat mat = cvMat(rows, cols, CV_8UC3, dest); 
 				//CvMat *ptr = &mat;

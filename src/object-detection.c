@@ -26,22 +26,22 @@ void compute_xgrad(unsigned char *image, unsigned char *x_component, int width, 
 void compute_ygrad(unsigned char *image, unsigned char *y_component, int width, int height);
 
 /*
-The process:
-test = whole image
-query = image with the template
+   The process:
+   test = whole image
+   query = image with the template
 
-Do PCA on the whole test image 
-For each patch do the cosine similarity
-Generate a resemblance percentage
-*/
+   Do PCA on the whole test image 
+   For each patch do the cosine similarity
+   Generate a resemblance percentage
+ */
 
 int main(int argc, char *argv[])
 {
 	int height, width, step, channels;
 	unsigned char *data;
 	char *window = "Object Detection";
-	int i, j, k;
-	CvMat stub,* query_mat,* test_mat;
+	int i, j = 0;
+	CvMat stub,* query_mat;
 
 
 	//If we do not have an input image
@@ -100,50 +100,61 @@ int main(int argc, char *argv[])
 	cvMoveWindow(window, 100, 100);
 
 	//unsigned char *test = (unsigned char *)malloc(sizeof(unsigned char) * width * height);
-	IplImage *b = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
-	IplImage *g = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
-	IplImage *r = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
+	/*
+	   IplImage *b = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
+	   IplImage *g = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
+	   IplImage *r = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 1);
 
-	cvSplit(src, b, g, r, 0);	
-	steeringKernel(b);
-	steeringKernel(g);
-	steeringKernel(r);
+	   cvSplit(src, b, g, r, 0);	
+	   steeringKernel(b);
+	   steeringKernel(g);
+	   steeringKernel(r);
 
-	pca(b);
-	pca(g);
-	pca(r);
+	   pca(b);
+	   pca(g);
+	   pca(r);
+	 */
 
-	cvMerge(b, g, r, 0, src);
+	steeringKernel(img);
+	steeringKernel(query);
 
-	//steeringKernel(img);
+	pca(img);
+	pca(query);
+	printf("Type of img: %d,  type of query: %d\n", img->width, query->width);
+	//	cvMerge(b, g, r, 0, src);
+
 
 	//memcpy(data, test, sizeof(unsigned char) * width * height);
 	//Invert the image
 	//bilateralKernel(src);
 
 	//pca(src);
-	//Display the image on the windowi
-	cvShowImage(window, src);
+	//Display the image on the window
+	//	cvShowImage(window, src);
 	//cvShowImage("b", b);
 	//cvShowImage("g", g);
 
+	cvShowImage(window, img);
+
+
+	//Get the matrix data out of the query image 
 	query_mat = cvGetMat(query, &stub,0,0);
 
 	printf("starting the patching process\n");
 
 	//get the patches
-	CvMat ** patches = get_queries(src, query);
+	CvMat ** patches = get_queries(img, query);
 	printf("Patches done, %d of them %d wide\n",(src->height - (query->height-1)), patches[0]->rows );
 
+	//Allocate memory for thre resemblance map
 	double ** resemblence_map = malloc(src->height * src->width * sizeof(double *));
-
 	for(i = 0; i < src->height; i++){
 		resemblence_map[i] = malloc(src->height * sizeof(double));
 	} 
 
-
+	//For each patch 
 	for(i = 0; i < (src->height - (query->height-1));i++){
-		printf("Doing similarity..");
+		printf("Doing similarity for %d, size patches%d\n",i, patches[i]->rows);
 		CvScalar similarity = cosine_similarity(patches[i],query_mat);
 		printf("... finished\n");	
 		resemblence_map[i][j % src->height] = Resemblance(similarity);
@@ -163,7 +174,7 @@ int main(int argc, char *argv[])
 
 void steeringKernel(IplImage *image)
 {
-	int i, j, k, ii, jj;
+	int i, j, ii, jj;
 	int width, height, step, channels;
 	unsigned char *src;
 	float *dest;
@@ -183,9 +194,8 @@ void steeringKernel(IplImage *image)
 	CvMat *covarMat   = cvCreateMat(2, 2, CV_32FC1);
 	CvMat *spatialMat = cvCreateMat(1, 2, CV_32FC1); 
 	CvMat *outputMat  = cvCreateMat(1, 2, CV_32FC1);
-
-	float *covar      = covarMat->data.fl;
-	float *spatial    = spatialMat->data.fl;
+	//float *covar      = covarMat->data.fl;
+	//float *spatial    = spatialMat->data.fl;
 	int count = 0;
 
 	dest = (float *)malloc(sizeof(float) * width * height);
@@ -318,12 +328,13 @@ void compute_ygrad(unsigned char *image, unsigned char *y_component, int width, 
 
 void bilateralKernel(IplImage *image)
 {
-	int i, j, k, ii, jj, kk;
+	int i, j, k, ii, jj;
 	int width, height, step, channels;
 	unsigned char *src;
 	unsigned char *dest;
 	float colorDist, imageDist, colorSum, imageSum;
-	int rows, cols, nbrs;
+	int cols, nbrs;
+	//int rows;
 
 	height    = image->height;
 	width     = image->width;
@@ -379,7 +390,7 @@ void bilateralKernel(IplImage *image)
 
 void pca(IplImage *image)
 {
-	int i, j, k;
+	int i, j;
 	int width, height, step, channels;
 	unsigned char *src;
 	float *u;
@@ -498,7 +509,7 @@ void pca(IplImage *image)
 	printf("Successfully computed cumulative energy\n");
 
 	int L = 0;
-	float currVal = 0.0;
+	//float currVal = 0.0;
 
 	/*for(i = 0; i < height; i++)
 	  {
@@ -601,7 +612,7 @@ void pca(IplImage *image)
 
 	printf("created z matrix\n");
 
-	CvMat *yMat = cvCreateMat(height, width, CV_32FC1);
+	//CvMat *yMat = cvCreateMat(height, width, CV_32FC1);
 
 	//CvMat *yMatb = cvCreateMat(height, width, CV_8UC1);
 	//CvMat *yMatg = cvCreateMat(height, width, CV_8UC1);
