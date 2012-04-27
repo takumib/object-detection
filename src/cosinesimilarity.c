@@ -28,19 +28,25 @@ CvScalar cosine_similarity(CvMat * test, CvMat * patch)
 }
 
 //int?
-double Resemblance(CvScalar map)
+double Resemblance(float index)
 {
-	double result = (int)(map.val[0] * map.val[0])/(1-(map.val[0]*map.val[0]));
-	return result;
+	//return (p squared) /(1 - p squared) 
+	return (index * index)/(1-(index * index));
 } 
 
 void significance(resembleList res)
 {
-	int i;
+	int i, j;
 
-	for(i = 0; i < res.size;i++){
-		if(res.resemblences[i] >= TOLERANCE){
-			res.resemblences[i] = 0.0;		
+	for(i = 0; i < res.size;i++)
+	{
+		for(j = 0; j < res.size;j++)
+		{
+			//If the pixel doesn't respond up to the tolerance
+			if(res.resemblences[i][j] < TOLERANCE){
+				//zero it out
+				res.resemblences[i][j] = 0.0;		
+			}
 		}
 	}
 }

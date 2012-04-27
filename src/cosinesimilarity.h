@@ -5,7 +5,8 @@ extern double Resemblance(CvScalar map);
 
 typedef struct{
 	int size;
-	double * resemblences;
+	int width;
+	double ** resemblences;
 }resembleList;
 
 
