@@ -10,12 +10,7 @@
 // compiled with
 //gcc slidingwindow.c -c `pkg-config --cflags --libs opencv`
 
-//Do we need to check the size of the image?
-
-void duck(){
-printf("test\n");
-}
-
+//This divides the image into peices 
 CvMat** get_queries(IplImage * Test, IplImage * query)
 {
 	//Get the sizes of the images
@@ -33,17 +28,13 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 	int i,j,k,l;
 
 	//We need to figure out how many query patches we can fit in vertically and horizontally
-	//The values are equivilant in a 2^n image, but why not be general?
-	printf("Test Width, Height: %d,%d    query_height %d,%d\n", test_width,test_height, query_height,query_width);
-	int numhoriz = test_width -(query_width + 1);
-	int numvert = test_height - (query_height + 1);
+	int numhoriz = test_width -  query_width + 1;
+	int numvert = test_height - query_height + 1;
 
-	printf("Allocating patches with %d\n",numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
+	//printf("Allocating patches with %d\n",numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
 
-	//Allocate memory for each of the patches
+	//Allocate the container for the patches 
 	CvMat ** patches = malloc(numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
-
-//	printf("Matrix test %d\n", patches[0]->cols); 
 
 	//Allocate memory for a swap patch
 	printf("Allocating swap space h: %d  w: %d\n",query_height, query_width); 
@@ -53,11 +44,9 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 		swap[i] = malloc(query_width * sizeof(char));
 	}
 
-
 	//We need to keep track of how many patches we have sampled
 	int patchindex = 0;
 
-	printf("Patching loop start %d, %d\n", numhoriz, numvert);
 	//For each horizontal space
 	for(i = 0; i < numhoriz; i++)
 	{
@@ -69,7 +58,6 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 			//Create a new patch
 		//	printf("Patch values pi%d  qh %d, qw %d, %d\n", patchindex, query_height, query_width, CV_8UC1);
 			patches[patchindex] = cvCreateMat(query_height, query_width, CV_8UC1);
-			printf("Done Assigning matrix %d\n", data[9]);
 
 			//For each pixel of the patch...
 			for(k = 0; k < query_width; k++)
@@ -88,7 +76,7 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 			CvMat * temp =  patches[patchindex - 1];
 			unsigned char * temp2 = temp->data.ptr;
 
-			printf("\n");
+			/*printf("\n");
 			for(k = 0;k < query_width; k++)
 			{
 				for(l = 0; l < query_height; l++)
@@ -97,7 +85,7 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 				}
 
 				printf("\n");
-			} 
+			} */ 
 		}
 
 	}	

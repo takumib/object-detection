@@ -154,9 +154,9 @@ int main(int argc, char *argv[])
 
 	//For each patch 
 	for(i = 0; i < (src->height - (query->height-1));i++){
-		printf("Doing similarity for %d, size patches%d\n",i, patches[i]->rows);
+//		printf("Doing similarity for %d, size patches%d\n",i, patches[i]->rows);
 		CvScalar similarity = cosine_similarity(patches[i],query_mat);
-		printf("... finished\n");	
+//		printf("... finished\n");	
 		resemblence_map[i][j % src->height] = Resemblance(similarity);
 	}
 
