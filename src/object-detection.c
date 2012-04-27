@@ -7,28 +7,33 @@
 
 int main(int argc, char *argv[])
 {
-	IplImage *src;
-	int height, width, step, channels;
-	uchar *data;
+	IplImage *query, *target;
+	int query_height, query_width;
+	int target_height, target_width;
 	char *window;
-	float *features, *normalized;
+	float *query_features, *query_normalized;
+	float **target_normalized;
+	float ** target_features;
 	int d;
 
 	window = "Object Detection";
-	src    = 0;
+	query  = 0;
+	target = 0;
 
 	//If we do not have an input image
-	if(argc < 2)
+	if(argc < 3)
 	{
 		printf("Usage: object-detection <image-file>\n");
 		exit(0);
 	}
 
 	//Load image from input
-	src =  cvLoadImage(argv[1], LOAD_GRAY);
+	query = cvLoadImage(argv[1], LOAD_GRAY);
+	target =  cvLoadImage(argv[2], LOAD_GRAY);
+
 	//CvCapture *capture = cvCaptureFromCAM(0);
 
-	if(!src)
+	if(!query || !target)
 	{
 		printf("Could not load image file: %s\n", argv[1]);
 		exit(0);
@@ -44,43 +49,110 @@ int main(int argc, char *argv[])
 	//img = cvRetrieveFrame(capture,1);
 	
 	//Get the image data
-	height    = src->height;
-	width     = src->width;
-	step      = src->widthStep;
-	channels  = src->nChannels;
-	data      = (unsigned char *)src->imageData;
+	query_height    = query->height;
+	query_width     = query->width;
 	
+	target_height    = target->height;
+	target_width     = target->width;
+
 	//Information about the image
-	printf("Processing a %dx%d image with %d channels\n", height, width, channels); 
+	printf("Processing a %dx%d test image \n", target_height, target_width ); 
+
 
 	//Set up basic window
 	cvNamedWindow(window, CV_WINDOW_AUTOSIZE);
 	cvMoveWindow(window, 100, 100);
 
-	steering_kernel(src);
+	IplImage *buffer;
+	IplImage *temp;
+	buffer =  cvCreateImage(cvSize(query->width,query->height), IPL_DEPTH_8U, 1);
 
-	features = pca(src, &d);
+	float *qWeights = malloc(sizeof(float) * query_width * query_height);
+	float *tWeights = malloc(sizeof(float) * target_width * target_height);
+
+	steering_kernel(query, qWeights);
+	steering_kernel(target, tWeights);
+
+	query_features = pca(query, &d);
+	//printf("%d\n",d);
+	target_features = pca(target, &d);
+	//printf("%d\n",d);
+
+	query_normalized = (float *)malloc(sizeof(float) * query_width * d);
+	normalize_features(query_features, query_normalized, query_width, d);
 	
-	normalized = (float *)malloc(sizeof(float) * width * d);
+	target_normalized = (float *)malloc(sizeof(float) * target_width * d);
+	normalize_features(target_features, target_normalized, target_width, d);
+	
+	int patch_size = 16 * 16;
 
-	normalize_features(features, normalized, width, d);
+	CvMat **patches = get_queries(target, query);
+	//printf("target %d %d", target->width, target->height);
+	
+	int i, j, k,l;
+
+	target_features = (float **) malloc(sizeof(float *) * patch_size);
+	
+	for(i = 0; i < patch_size; i++)
+	{	
+		//target_features[i] = malloc(sizeof(float) * query_width * 4);
+		temp = cvGetImage(patches[i], buffer);
+		//printf("%d %d", temp->width, temp->height);
+		target_features[i] = pca(temp, &d);
+	}
+
+	target_normalized = malloc(sizeof(float *) * patch_size);
+	for(i = 0; i < patch_size; i++)
+	{	
+		target_normalized[i] = malloc(sizeof(float) * query_width * d);
+		normalize_features(target_features[i], target_normalized[i], query_width, d);
+	}
+
+	float *sim = malloc(sizeof(float) * patch_size);
+	for(i = 0; i < patch_size; i++)
+	{
+		float temp = cosine_similarity(query_normalized, target_normalized[i], query_width, d);
+	    float simSqrd = temp * temp;
+		
+		sim[i] = simSqrd / (1 - simSqrd);
+		//printf("%f\n", sim[i]);
+	}
+
+/*	char *data = target->imageData;	*/
+
+/*	for(i = 0; i < 16; i++)*/
+/*	{*/
+/*		for(j = 0; j < 16; j++)*/
+/*		{*/
+/*			for(k = 0; k < query_height; k++)*/
+/*			{*/
+/*				for(l = 0; l < query_width; l++)*/
+/*				{*/
+/*					data[((i * query_width) + k) * target_width + l + (j * query_width)] = (uchar)(255.0 * sim[i * 16 + j]);								*/
+/*				}*/
+/*			}*/
+/*			*/
+/*		}*/
+/*	}*/
+
 
 	//Display the image on the window
-	cvShowImage(window, src);
-
+	cvShowImage(window, query);
+	cvShowImage("Target", target);
 	//cvSaveImage("object-detection-output.jpg", src, 0);
 
 	//Wait key to signal exit  
 	cvWaitKey(0);
 
 	//Releases the image
-	cvReleaseImage(&src);
+	cvReleaseImage(&query);
+	cvReleaseImage(&target);
 	//cvReleaseCapture(&capture);
 
 	return 0;
 }
 
-void steering_kernel(IplImage *image)
+void steering_kernel(IplImage *image, float *weights)
 {
 	int i, j, k, ii, jj;
 	int width, height, step, channels;
@@ -145,7 +217,7 @@ void steering_kernel(IplImage *image)
 
 			cvMatMul(spatialMat, covarMat, outputMat);
 			float *output = outputMat->data.fl;
-			float dist    = exp(-1 * sqrt(output[0] * output[0] +  output[1] * output[1])  / (2 *  0.008));
+			float dist    = exp(-1 * sqrt(output[0] + output[1])  / (2 *  9));
 			//double det = cvDet(covarMat);
 	
 			//printf("covar: %f\n",  det);
@@ -172,7 +244,8 @@ void steering_kernel(IplImage *image)
 					kernelSum += dest[ii * width + jj];					
 				}
 			}
-			src[i * width + j] =  (unsigned char)(src[i * width + j] * (1 + (dest[i * width + j] / kernelSum)));
+			src[i * width + j] = (unsigned char)(src[i * width + j] * ((dest[i * width + j] / kernelSum)));
+			weights[i * width +j] = dest[i * width + j] / kernelSum;			
 			//printf("weighted: %f\n", dest[i * width + j] / kernelSum);	
 		}
 	}
@@ -193,7 +266,7 @@ float *pca(IplImage *image, int *energy)
 	width     = image->width;
 	src       = (unsigned char *)image->imageData;
 	
-	d         = 2;
+	d         = 4;
 	mean      = (float *)malloc(sizeof(float) * height);
 	dev       = (float *)malloc(sizeof(float) * width * height);
 	covar     = (float *)malloc(sizeof(float) * height * height);
@@ -202,7 +275,7 @@ float *pca(IplImage *image, int *energy)
 	basis     = (float *)malloc(sizeof(float) * d * height);
 	z         = (float *)malloc(sizeof(float) * width * height);
 	p         = (float *)malloc(sizeof(float) * width * d);
-	
+
 	init_floatMat(mean, height);
 	init_floatMat(dev, width * height);
 	init_floatMat(covar, height * height);

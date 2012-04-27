@@ -22,8 +22,11 @@ void empirical_mean(float *src, float *mean, int width, int height)
 	{
 		for(j = 0; j < width; j++)
 		{
-				mean[i] += (float)src[i * width + j] / (float)width; 
+				mean[i] += (float)src[i * width + j]; 
 		}
+		
+		mean[i] = mean[i] / (float)width;
+	
 	}
 }
 
@@ -51,7 +54,13 @@ void deviation(float *src, float *mean, float *dev, int width, int height)
 		for(j = 0; j < width; j++)
 		{			
 			dev[i * width + j] = src[i * width + j] -  mean[i]; 
+			if(dev[i * width + j] < 0.000000001 && dev[i * width + j] > -0.000000001)
+			{
+				dev[i * width + j] += 0.01;
+				//printf("%f\n", dev[i * width + j]);
+			}
 		}
+			
 	}	
 }
 
@@ -75,9 +84,23 @@ void covariance_matrix(float *dev, float *covar, int width, int height)
 	CvMat devMat    = cvMat(height, width, CV_32FC1, dev);
 	CvMat *covarMat = cvCreateMat(height, height, CV_32FC1);
 
+	int i, j;
+	
 	cvMulTransposed(&devMat, covarMat, 0, NULL, 1.0 / (float)width);
 
 	memcpy(covar, covarMat->data.fl, sizeof(float) * height * height);
+
+	for(i = 0; i < height; i++)
+	{
+		for(j = 0; j < height; j++)
+		{
+/*			if(covar[i * height + j] < 0.000000001 && covar[i * height + j] > -0.000000001)*/
+/*			{*/
+/*				covar[i*height+j] += 2;*/
+/*			}*/
+		}
+		//printf("\n");
+	}
 }
 
 /**
