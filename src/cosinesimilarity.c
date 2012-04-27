@@ -44,6 +44,7 @@ void significance(resembleList res)
 		}
 	}
 }
+
 void mmm(char * t, char * q, char * dest, int N)
 {
 	int i,k,j;

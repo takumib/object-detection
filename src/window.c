@@ -32,19 +32,18 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 	unsigned char * data = (unsigned char *)Test->imageData;
 	int i,j,k,l;
 
-	//FIXME This math may need work 
 	//We need to figure out how many query patches we can fit in vertically and horizontally
 	//The values are equivilant in a 2^n image, but why not be general?
 	printf("Test Width, Height: %d,%d    query_height %d,%d\n", test_width,test_height, query_height,query_width);
-	int numhoriz = test_width -(query_width - 1);
-	int numvert = test_height - (query_height - 1);
+	int numhoriz = test_width -(query_width + 1);
+	int numvert = test_height - (query_height + 1);
+
+	printf("Allocating patches with %d\n",numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
 
 	//Allocate memory for each of the patches
 	CvMat ** patches = malloc(numhoriz * numvert * sizeof(unsigned char) * sizeof(CvMat));
 
-	patches[0] = cvCreateMat(query_height, query_width, CV_8UC1);
-
-	printf("Matrix test %d\n", patches[0]->cols); 
+//	printf("Matrix test %d\n", patches[0]->cols); 
 
 	//Allocate memory for a swap patch
 	printf("Allocating swap space h: %d  w: %d\n",query_height, query_width); 
@@ -70,7 +69,7 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 			//Create a new patch
 		//	printf("Patch values pi%d  qh %d, qw %d, %d\n", patchindex, query_height, query_width, CV_8UC1);
 			patches[patchindex] = cvCreateMat(query_height, query_width, CV_8UC1);
-		//	printf("Done Assigning matrix %d\n", data[9]);
+			printf("Done Assigning matrix %d\n", data[9]);
 
 			//For each pixel of the patch...
 			for(k = 0; k < query_width; k++)
@@ -81,10 +80,24 @@ CvMat** get_queries(IplImage * Test, IplImage * query)
 					swap[k][l] = data[(i * query_width + j) + k * query_width + l];
 				}
 			}
-			//printf("Data copying done\n");
+			printf("Data copying done\n");
 			//FIXME figure out how to get the data from the swap into the array
 			memcpy(patches[patchindex]->data.ptr, swap, query_size);
 			patchindex+=1;
+
+			CvMat * temp =  patches[patchindex - 1];
+			unsigned char * temp2 = temp->data.ptr;
+
+			printf("\n");
+			for(k = 0;k < query_width; k++)
+			{
+				for(l = 0; l < query_height; l++)
+				{
+					printf("[%d]",data[(i * query_width + j) + k * query_width + l]);
+				}
+
+				printf("\n");
+			} 
 		}
 
 	}	
